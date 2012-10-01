@@ -41,6 +41,8 @@ g1 = maximum $ project price ps
 -- want to get group value plus something from row
 -- i.e. (a -> b) -> ([a] -> a) -> (a -> c) -> [a] -> (b, c)
 g2 = groupByTake1AndTransform store (maximumOn price) price ps 
+-- how do we get rid of the repeated 'price's?
+--  maybe we should separate 'group'ing from aggregate value calculating
 
 
 maximumOn :: Ord b => (a -> b) -> [a] -> a
