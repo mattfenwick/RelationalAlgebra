@@ -1,16 +1,13 @@
-{-
-grouping use cases:
-
-  - n rows, m + 1 columns:  agg val + other stuff, each group
-    <same as above?>
--}
-
 import RelAl
 import Data.List (maximumBy)
 
 
-data Product = Product { id' :: Integer, name :: String, 
-                         store :: String, price :: Double} deriving (Ord, Eq, Show)
+data Product = Product { 
+                   id' :: Integer, 
+                   name :: String, 
+                   store :: String, 
+                   price :: Double
+            } deriving (Ord, Eq, Show)
 
 
 ps = [Product 1 "abc" "xyz" 32.23,
@@ -30,7 +27,7 @@ x = groupBy store ps
 
 y = project (\(m, rs) -> (m, maximum $ project price rs)) x
 
-x' = groupByTake1 store maximum ps
+x' = aggregate maximum $ groupBy store ps
 
 
 -- want to go [a] -> b
@@ -40,9 +37,12 @@ g1 = maximum $ project price ps
 
 -- want to get group value plus something from row
 -- i.e. (a -> b) -> ([a] -> a) -> (a -> c) -> [a] -> (b, c)
-g2 = groupByTake1AndTransform store (maximumOn price) price ps 
--- how do we get rid of the repeated 'price's?
---  maybe we should separate 'group'ing from aggregate value calculating
+g2 = aggregate maximum $ groupProject price $ groupBy store ps 
+
+
+group_aug = join pred ps g2
+  where
+    pred l r = store l == fst r
 
 
 maximumOn :: Ord b => (a -> b) -> [a] -> a
@@ -51,4 +51,4 @@ maximumOn f xs = maximumBy myF xs
     myF l r = compare (f l) (f r)
 
 
-group_est = groupByTake1 store (maximumOn price) ps
+group_est = aggregate (maximumOn price) $ groupBy store ps
