@@ -23,26 +23,20 @@ ps = [Product 1 "abc" "xyz" 32.23,
           Product 11 "abc" "xyz" 2]
 
 
-x = groupBy store ps
 
-y = project (\(m, rs) -> (m, maximum $ project price rs)) x
-
-x' = aggregate maximum $ groupBy store ps
-
-
--- want to go [a] -> b
--- find the max price
 g1 = maximum $ project price ps
 
 
--- want to get group value plus something from row
--- i.e. (a -> b) -> ([a] -> a) -> (a -> c) -> [a] -> (b, c)
 g2 = aggregate maximum $ groupProject price $ groupBy store ps 
 
 
 group_aug = join pred ps g2
   where
     pred l r = store l == fst r
+-- using :: Eq b => (a -> b) -> (c -> b) -> a -> c -> Bool
+-- using f g a b = f a == g b
+-- so:
+--   pred = using store fst
 
 
 maximumOn :: Ord b => (a -> b) -> [a] -> a
@@ -52,3 +46,9 @@ maximumOn f xs = maximumBy myF xs
 
 
 group_est = aggregate (maximumOn price) $ groupBy store ps
+
+
+pivot_2 = aggregate fa $ groupProject price $ groupBy fg ps
+  where
+    fa y = (sum y, length y)
+    fg x = (name x, store x)
