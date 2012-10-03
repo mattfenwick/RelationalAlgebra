@@ -19,7 +19,6 @@ module RelAl (
   , intersect
   , difference
   , divide
-  , divide2
 
 ) where
 
@@ -161,19 +160,14 @@ semiJoin p r1 r2 = nub $ map fst $ join p r1 r2
 
 antiJoin :: Eq a => (a -> b -> Bool) -> [a] -> [b] -> [a]
 antiJoin p r1 r2 = r1 `difference` semiJoin p r1 r2
-    
 
--- BUG:  I think there's some inappropriate 'nub'bing going on here
--- either I'm missing a nub, or have an extra nub
-divide2 :: forall a b c. (Eq a, Eq b, Ord c) => (a -> b -> Bool) -> (a -> c) -> [a] -> [b] -> [c]
-divide2 p f dividend divisor = umm
-  where 
-    inner :: [(a, b)]
-    inner = join p (nub dividend) (nub divisor)
-    sthg :: [(c, [(c, b)])] -- type??
-    sthg = groupBy fst $ map (\(x, y) -> (f x, y)) inner
-    umm :: [c]
-    umm = map fst $ filter (\(_, xs) -> length xs == length divisor) sthg
+
+-- more ideas:
+--  - transitive closure :: (a -> a -> Bool) -> [a] -> [(a, a)] -- not sure about the function sig
+--  - rank :: [a] -> [(a, Integer)] -- should it sort first?
+--  - window functions
+--     - size of window
+--     - sort order WRT window position
 
 
 {-
