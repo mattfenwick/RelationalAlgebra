@@ -7,6 +7,11 @@ module RelAl (
   , groupProject
   , aggregate
   , join
+  , leftOuterJoin
+  , fullOuterJoin
+  , selfJoin
+  , semiJoin
+  , antiJoin
   , product
   , pivot
   , extend
@@ -95,9 +100,6 @@ app2 f g =
   f >>= \x ->
   g >>= \y ->
   return (x, y)
-  
-  
--- divide :: [a] -> [b] -> [c] -- or [a] since we can't fuck with type variables
 
 
 -- those elements in the 1st, *and not* in the 2nd
@@ -126,6 +128,43 @@ divide dividend divisor = quotient
     u = nub $ map fst dividend
     
     
+leftOuterJoin :: forall a b. (a -> b -> Bool) -> b -> [a] -> [b] -> [(a, b)]
+leftOuterJoin p null rl rr = concatMap f rl
+  where 
+    f :: a -> [(a, b)]
+    f a = map ((,) a) $ addNull $ filter (p a) rr
+      where
+        addNull :: [b] -> [b]
+        addNull [] = [null]
+        addNull bs = bs
+-- go through all the a's 
+--   match each a with all b's
+--   if no matches, match it with the default
+--   otherwise keep all matches
+
+
+fullOuterJoin :: (Eq a, Eq b) => (a -> b -> Bool) -> a -> b -> [a] -> [b] -> [(a, b)]
+fullOuterJoin p anull bnull as bs = union left right
+  where 
+    left = leftOuterJoin p bnull as bs
+    right = map swap $ leftOuterJoin (flip p) anull bs as
+    swap (a, b) = (b, a) -- why isn't this in Data.Tuple?  do I have an old library version?
+    
+    
+selfJoin :: (a -> a -> Bool) -> [a] -> [(a, a)]
+selfJoin p rel = join p rel rel
+
+
+semiJoin :: Eq a => (a -> b -> Bool) -> [a] -> [b] -> [a]
+semiJoin p r1 r2 = nub $ map fst $ join p r1 r2
+
+
+antiJoin :: Eq a => (a -> b -> Bool) -> [a] -> [b] -> [a]
+antiJoin p r1 r2 = r1 `difference` semiJoin p r1 r2
+    
+
+-- BUG:  I think there's some inappropriate 'nub'bing going on here
+-- either I'm missing a nub, or have an extra nub
 divide2 :: forall a b c. (Eq a, Eq b, Ord c) => (a -> b -> Bool) -> (a -> c) -> [a] -> [b] -> [c]
 divide2 p f dividend divisor = umm
   where 

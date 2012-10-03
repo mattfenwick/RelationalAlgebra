@@ -1,5 +1,5 @@
 import RelAl
-import Data.List (maximumBy)
+import Data.List (maximumBy, nub)
 
 
 data Product = Product { 
@@ -10,17 +10,20 @@ data Product = Product {
             } deriving (Ord, Eq, Show)
 
 
-ps = [Product 1 "abc" "xyz" 32.23,
-          Product 2 "def" "www" 2.23,
-          Product 3 "abc" "www" 3.23,
-          Product 4 "def" "xyz" 32.3,
-          Product 5 "ghi" "xyz" 32.2,
-          Product 6 "abc" "www" 2.3,
-          Product 7 "abc" "www" 2.2,
-          Product 8 "ghi" "xyz" 3.2,
-          Product 9 "ghi" "www" 3.3,
-          Product 10 "def" "xyz" 3,
-          Product 11 "abc" "xyz" 2]
+ps = [Product  1   "abc"  "xyz"  32.23,
+      Product  2   "def"  "www"  2.23,
+      Product  3   "abc"  "www"  3.23,
+      Product  4   "def"  "xyz"  32.3,
+      Product  5   "ghi"  "xyz"  32.2,
+      Product  6   "abc"  "www"  2.3,
+      Product  7   "abc"  "www"  2.2,
+      Product  8   "ghi"  "xyz"  3.2,
+      Product  9   "ghi"  "www"  3.3,
+      Product  10  "def"  "xyz"  3,
+      Product  11  "abc"  "xyz"  2,
+      Product  12  "jkl"  "www"  19.7,
+      Product  13  "mno"  "xyz"  9.85,
+      Product  14  "abc"  "zzz"  10.22]
 
 
 
@@ -52,3 +55,9 @@ pivot_2 = aggregate fa $ groupProject price $ groupBy fg ps
   where
     fa y = (sum y, length y)
     fg x = (name x, store x)
+    
+    
+quotient = myDividend `divide` myDivisor
+  where 
+    myDividend = nub $ project (\x -> (name x, store x)) ps -- really shouldn't have to use 'nub' here
+    myDivisor = ["www", "xyz"]
