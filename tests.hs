@@ -95,7 +95,8 @@ testGroupBy = TestList [tp1, tp2]
     tp2 = newTest "number of groups" 4 (length $ toList grouped)
     
     
-testGroupProject = undefined
+testGroupProject = undefined -- b/c groupBy's type may need to be changed
+-- to something like (a -> b) -> Set a -> Map b (Set a) ... but then it's no longer a relation
 
 
 

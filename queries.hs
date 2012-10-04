@@ -3,7 +3,6 @@
 
 import RelAl
 import Data.List (maximumBy, nub)
-import Data.Set (fromList, toList, Set)
 
 
 data Product = Product { 
@@ -14,7 +13,7 @@ data Product = Product {
             } deriving (Ord, Eq, Show)
 
 
-p' = [Product  1   "abc"  "xyz"  32.23,
+ps = [Product  1   "abc"  "xyz"  32.23,
       Product  2   "def"  "www"  2.23,
       Product  3   "abc"  "www"  3.23,
       Product  4   "def"  "xyz"  32.3,
@@ -29,11 +28,9 @@ p' = [Product  1   "abc"  "xyz"  32.23,
       Product  13  "mno"  "xyz"  9.85,
       Product  14  "abc"  "zzz"  10.22]
 
-ps = fromList p'
 
 
-
-g1 = maximum $ toList $ project price ps
+g1 = maximum $ project price ps
 
 
 g2 = aggregate maximum $ groupProject price $ groupBy store ps 
