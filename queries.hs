@@ -1,3 +1,6 @@
+{-# LANGUAGE ScopedTypeVariables #-} -- just for um3
+
+
 import RelAl
 import Data.List (maximumBy, nub)
 import Data.Set (fromList, toList, Set)
@@ -68,3 +71,33 @@ quotient = myDividend `divide` myDivisor
 
 pr :: Show a => Set a -> IO ()
 pr = mapM_ print . toList
+
+
+
+tabs = [(1, 3, 5, "foo"),
+        (1, 4, 7, "bar"),
+        (1, 2, 9, "baz"),
+        (2, 1, 1, "dog"),
+        (2, 5, 2, "cat"),
+        (2, 5, 3, "horse"),
+        (2, 3, 8, "pig")]
+ts = fromList tabs
+        
+one   (a, _, _, _) = a
+two   (_, b, _, _) = b
+three (_, _, c, _) = c
+four  (_, _, _, d) = d
+
+
+um3 :: forall a b. (Ord a, Ord b) => ([b] -> b) -> (a -> b) -> Set a -> Set a
+um3 ch pr rel = rfilter f rel
+  where
+    f :: a -> Bool
+    f x = pr x == top
+    top :: b
+    top = ch $ toList $ project pr rel
+    
+    
+-- SO question:   http://stackoverflow.com/questions/12726549/select-one-value-from-a-group-based-on-order-from-other-columns
+soQ = project (fmap (four . head . toList)) $ project (fmap (um3 maximum three)) $ project (fmap (um3 maximum two)) $ groupBy one ts
+

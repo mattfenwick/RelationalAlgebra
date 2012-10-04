@@ -11,7 +11,7 @@ module RelAl (
 
   , groupBy
   , groupProject
-  , aggregate
+  , groupSetProject
 
   , join
   , leftOuterJoin
@@ -30,11 +30,11 @@ module RelAl (
 ) where
 
 
-import Prelude         hiding (lookup, product)
-import Data.List       (nub)
-import Data.Map        (lookup, insert, Map)
+import Prelude             hiding (lookup)
+import Data.Map            (lookup, insert, Map)
 import qualified Data.Map
-import Data.Set        (toList, fromList, Set, union, intersection, difference)
+import Data.Set            (toList, fromList, Set, union, intersection, difference)
+
 
 
 toMap :: Ord k => [(k, a)] -> Map k a
@@ -43,14 +43,17 @@ toMap = Data.Map.fromList
 fromMap :: Map k a -> [(k, a)]
 fromMap = Data.Map.toList
 
+setApply :: (Ord b) => ([a] -> [b]) -> Set a -> Set b
+setApply f = fromList . f . toList
+
 
 
 project :: Ord b => (a -> b) -> Set a -> Set b
-project f = fromList . map f . toList
+project f = setApply (map f)
 
 
 rfilter :: Ord a => (a -> Bool) -> Set a -> Set a
-rfilter f = fromList . filter f . toList
+rfilter f = setApply (filter f)
   
   
 rproduct :: (Ord a, Ord b) => Set a -> Set b -> Set (a, b)
@@ -83,19 +86,13 @@ groupBy f rel = fromList $ fromMap $ fmap fromList grouped
                         (Just oldval) -> insert k (v:oldval) mp;  
                         _ -> insert k [v] mp;     
                         
+                        
+groupProject :: (Ord b, Ord c) => (a -> c) -> Set (b, a) -> Set (b, c)
+groupProject f = project (fmap f)
+                        
 
-groupProject :: forall a b c. (Ord b, Ord c) => (a -> c) -> Set (b, Set a) -> Set (b, Set c)
-groupProject f rel = project g rel
-  where
-    g :: (b, Set a) -> (b, Set c)
-    g = fmap (project f)
-    
-    
-aggregate :: forall a b c. (Ord b, Ord c) => ([a] -> c) -> Set (b, Set a) -> Set (b, c)
-aggregate f rel = project g rel
-  where
-    g :: (b, Set a) -> (b, c)
-    g = fmap (f . toList)
+groupSetProject :: (Ord b, Ord c) => (a -> c) -> Set (b, Set a) -> Set (b, Set c)
+groupSetProject f = groupProject (project f)
     
 
 -- extend all the rows in a relation
@@ -146,7 +143,7 @@ divideBy f f' dividend divisor = divide dividend' divisor
     
     
 leftOuterJoin :: forall a b. (Ord a, Ord b) => (a -> b -> Bool) -> b -> Set a -> Set b -> Set (a, b)
-leftOuterJoin p null rl rr = fromList $ concatMap f $ toList rl
+leftOuterJoin p null rl rr = setApply (concatMap f) rl
   where 
     f :: a -> [(a, b)]
     f a = map ((,) a) $ addNull $ filter (p a) $ toList rr
