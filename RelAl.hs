@@ -3,55 +3,75 @@
 module RelAl (
   
     project
+  , rfilter
+  , rproduct
+  , union
+  , difference
+  , intersect
+
   , groupBy
   , groupProject
   , aggregate
+
   , join
   , leftOuterJoin
   , fullOuterJoin
   , selfJoin
   , semiJoin
   , antiJoin
-  , product
+
   , pivot
   , extend
-  , union
-  , intersect
-  , difference
   , divide
+  , divideBy
+
+  , rank
 
 ) where
 
 
-import Prelude                hiding (lookup, product)
-import Data.List              (nub, union, intersect)
-import Data.Map               (lookup, insert, toList, fromList, Map)
+import Prelude         hiding (lookup, product)
+import Data.List       (nub)
+import Data.Map        (lookup, insert, Map)
+import qualified Data.Map
+import Data.Set        (toList, fromList, Set, union, intersection, difference)
+
+
+toMap :: Ord k => [(k, a)] -> Map k a
+toMap = Data.Map.fromList
+
+fromMap :: Map k a -> [(k, a)]
+fromMap = Data.Map.toList
 
 
 
-project :: (a -> b) -> [a] -> [b]
-project = map
+project :: Ord b => (a -> b) -> Set a -> Set b
+project f = fromList . map f . toList
 
 
--- filter :: (a -> Bool) -> [a] -> [a]
--- filter is just filter
-
-
-join :: (a -> b -> Bool) -> [a] -> [b] -> [(a, b)]
-join f ls rs = filter (uncurry f) (product ls rs)
+rfilter :: Ord a => (a -> Bool) -> Set a -> Set a
+rfilter f = fromList . filter f . toList
   
   
-product :: [a] -> [b] -> [(a, b)]
-product ls rs = do
-  l <- ls
-  r <- rs
+rproduct :: (Ord a, Ord b) => Set a -> Set b -> Set (a, b)
+rproduct ls rs = fromList $ do
+  l <- toList ls
+  r <- toList rs
   return (l, r)
 
 
-groupBy :: (Ord b) => (a -> b) -> [a] -> [(b, [a])]
-groupBy f rel = toList grouped
+intersect :: Ord a => Set a -> Set a -> Set a
+intersect = intersection
+
+
+join :: (Ord a, Ord b) => (a -> b -> Bool) -> Set a -> Set b -> Set (a, b)
+join f ls rs = rfilter (uncurry f) (rproduct ls rs)
+
+
+groupBy :: (Ord a, Ord b) => (a -> b) -> Set a -> Set (b, Set a)
+groupBy f rel = fromList $ fromMap $ fmap fromList grouped
   where
-    grouped = foldl f' (fromList []) rel
+    grouped = foldl f' (toMap []) $ toList rel
 
     f' mp next = updateMe (f next) next mp
     
@@ -64,32 +84,24 @@ groupBy f rel = toList grouped
                         _ -> insert k [v] mp;     
                         
 
--- still missing:   (a -> c) -> [(b, a)] -> [(b, c)]  -- that's projection across a pair
---   but this can be handled by project:  \f rel -> project (fmap f) rel
-groupProject :: forall a b c. (a -> c) -> [(b, [a])] -> [(b, [c])]
-groupProject f rel = fmap g rel
+groupProject :: forall a b c. (Ord b, Ord c) => (a -> c) -> Set (b, Set a) -> Set (b, Set c)
+groupProject f rel = project g rel
   where
-    g :: (b, [a]) -> (b, [c])
-    g = fmap (fmap f)
+    g :: (b, Set a) -> (b, Set c)
+    g = fmap (project f)
     
     
-aggregate :: forall a b c. ([a] -> c) -> [(b, [a])] -> [(b, c)]
-aggregate f rel = fmap g rel
+aggregate :: forall a b c. (Ord b, Ord c) => ([a] -> c) -> Set (b, Set a) -> Set (b, c)
+aggregate f rel = project g rel
   where
-    g :: (b, [a]) -> (b, c)
-    g = fmap f
+    g :: (b, Set a) -> (b, c)
+    g = fmap (f . toList)
     
 
 -- extend all the rows in a relation
 --   by adding extra field(s)
-extend :: (a -> b) -> [a] -> [(a, b)]
-extend f rel = zip rel (project f rel)
-
-
--- this seems to be a mostly unnecessary function
--- but it's interesting
-pivot :: (Ord b, Ord c) => (a -> b) -> (a -> c) -> [a] -> [((b, c), [a])]
-pivot f1 f2 rel = groupBy (app2 f1 f2) rel
+extend :: (Ord a, Ord b) => (a -> b) -> Set a -> Set (a, b)
+extend f rel = project (\a -> (a, f a)) rel
 
 
 -- alternate, non-monadic implementation:  app2 f g x = (f x, g x)
@@ -101,37 +113,43 @@ app2 f g =
   return (x, y)
 
 
--- those elements in the 1st, *and not* in the 2nd
---   note how I could use Data.List.(\\) if I knew the
---   input lists didn't have duplicates
-difference :: Eq a => [a] -> [a] -> [a]
-difference r1 r2 = filter (\x -> not $ elem x r2) r1
+-- this seems to be a mostly unnecessary function
+-- but it's interesting
+pivot :: (Ord a, Ord b, Ord c) => (a -> b) -> (a -> c) -> Set a -> Set ((b, c), Set a)
+pivot f1 f2 rel = groupBy (app2 f1 f2) rel
 
 
 -- this is basically a step-by-step implementation of the wikipedia algorithm
 -- I put it in reverse order though
 -- I think it's basically trying to find counter-examples
 -- then subtracting those from the input
-divide :: forall a b. (Eq a, Eq b) => [(a, b)] -> [b] -> [a]
+divide :: forall a b. (Ord a, Ord b) => Set (a, b) -> Set b -> Set a
 divide dividend divisor = quotient
   where
-    quotient :: [a]
+    quotient :: Set a
     quotient = u `difference` x
-    x :: [a]
-    x = nub $ map fst w
-    w :: [(a, b)]
+    x :: Set a
+    x = project fst w
+    w :: Set (a, b)
     w = v `difference` dividend
-    v :: [(a, b)]
-    v = u `product` divisor
-    u :: [a]
-    u = nub $ map fst dividend
+    v :: Set (a, b)
+    v = u `rproduct` divisor
+    u :: Set a
+    u = project fst dividend
+
+
+divideBy :: forall a b c. (Ord b, Ord c) => (a -> b) -> (a -> c) -> Set a -> Set c -> Set b
+divideBy f f' dividend divisor = divide dividend' divisor
+  where
+    dividend' :: Set (b, c)
+    dividend' = project (app2 f f') dividend
     
     
-leftOuterJoin :: forall a b. (a -> b -> Bool) -> b -> [a] -> [b] -> [(a, b)]
-leftOuterJoin p null rl rr = concatMap f rl
+leftOuterJoin :: forall a b. (Ord a, Ord b) => (a -> b -> Bool) -> b -> Set a -> Set b -> Set (a, b)
+leftOuterJoin p null rl rr = fromList $ concatMap f $ toList rl
   where 
     f :: a -> [(a, b)]
-    f a = map ((,) a) $ addNull $ filter (p a) rr
+    f a = map ((,) a) $ addNull $ filter (p a) $ toList rr
       where
         addNull :: [b] -> [b]
         addNull [] = [null]
@@ -142,52 +160,32 @@ leftOuterJoin p null rl rr = concatMap f rl
 --   otherwise keep all matches
 
 
-fullOuterJoin :: (Eq a, Eq b) => (a -> b -> Bool) -> a -> b -> [a] -> [b] -> [(a, b)]
+fullOuterJoin :: (Ord a, Ord b) => (a -> b -> Bool) -> a -> b -> Set a -> Set b -> Set (a, b)
 fullOuterJoin p anull bnull as bs = union left right
   where 
     left = leftOuterJoin p bnull as bs
-    right = map swap $ leftOuterJoin (flip p) anull bs as
+    right = project swap $ leftOuterJoin (flip p) anull bs as
     swap (a, b) = (b, a) -- why isn't this in Data.Tuple?  do I have an old library version?
     
     
-selfJoin :: (a -> a -> Bool) -> [a] -> [(a, a)]
+selfJoin :: Ord a => (a -> a -> Bool) -> Set a -> Set (a, a)
 selfJoin p rel = join p rel rel
 
 
-semiJoin :: Eq a => (a -> b -> Bool) -> [a] -> [b] -> [a]
-semiJoin p r1 r2 = nub $ map fst $ join p r1 r2
+semiJoin :: (Ord a, Ord b) => (a -> b -> Bool) -> Set a -> Set b -> Set a
+semiJoin p r1 r2 = project fst $ join p r1 r2
 
 
-antiJoin :: Eq a => (a -> b -> Bool) -> [a] -> [b] -> [a]
+antiJoin :: (Ord a, Ord b) => (a -> b -> Bool) -> Set a -> Set b -> Set a
 antiJoin p r1 r2 = r1 `difference` semiJoin p r1 r2
 
 
+rank :: Ord a => ([a] -> [a]) -> Set a -> Set (Integer, a)
+rank fsort = fromList . zip [1 .. ] . fsort . toList
+
+
 -- more ideas:
---  - transitive closure :: (a -> a -> Bool) -> [a] -> [(a, a)] -- not sure about the function sig
---  - rank :: [a] -> [(a, Integer)] -- should it sort first?
+--  - transitive closure :: (a -> a -> Bool) -> Set a -> Set (a, a) -- not sure about the function sig
 --  - window functions
 --     - size of window
 --     - sort order WRT window position
-
-
-{-
-so what independent operations do we have so far?
-
-- transforming
-- grouping
-- aggregation
-
-so we combine these pair-wise, and get:
-
-1. transforming a grouped relation
-  - what is transformed -- just the rows; not the grouping value
-  - if you need to transform everything together, that's just a normal 'project'
-2. aggregating a grouped relation
-3. transforming and aggregating a grouped relation (can this be done by 1 and 2?)
-4. aggregating and transforming a grouped relation (same ? as 3)
-
-we don't really need a special 'pivot' function, 
-   because honestly it's just a special case of 'groupBy'
-   the way people typically use it is as a formatting thing
-   I have no need of a formatting operator
--}
