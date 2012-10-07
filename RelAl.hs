@@ -10,8 +10,7 @@ module RelAl (
   , intersect
 
   , groupBy
-  , groupProject
-  , groupSetProject
+  , groupLift
 
   , join
   , leftOuterJoin
@@ -26,12 +25,13 @@ module RelAl (
   , divideBy
 
   , rank
+  , aggregate
 
 ) where
 
 
 import Prelude             hiding (lookup)
-import Data.Map            (lookup, insert, Map)
+import Data.Map            (lookup, insert, Map, toList, fromList)
 import Control.Monad       (liftM2)
 import Data.List           (nub)
 
@@ -50,7 +50,15 @@ rproduct = liftM2 (,)
 
 
 intersect :: Eq a => [a] -> [a] -> [a]
-intersect x y = nub (x ++ y)
+intersect xs ys = filter (\x -> x `elem` ys) xs
+
+
+union :: Eq a => [a] -> [a] -> [a]
+union xs ys = nub (xs ++ ys)
+
+
+difference :: Eq a => [a] -> [a] -> [a]
+difference r1 r2 = filter (\x -> not $ elem x r2) r1
 
 
 join :: (a -> b -> Bool) -> [a] -> [b] -> [(a, b)]
@@ -61,7 +69,7 @@ join f ls rs = rfilter (uncurry f) (rproduct ls rs)
 -- groupBy :: (Ord a, Ord b) => (a -> b) -> [a] -> [(b, [a])
 groupBy f rel = toList grouped
   where
-    grouped = foldl f' (toMap []) rel
+    grouped = foldl f' (fromList []) rel
 
     f' mp next = updateMe (f next) next mp
     
@@ -71,20 +79,16 @@ groupBy f rel = toList grouped
     updateMe :: Ord k => k -> v -> Map k [v] -> Map k [v]
     updateMe k v mp = case lookup k mp of    
                         (Just oldval) -> insert k (v:oldval) mp;  
-                        _ -> insert k [v] mp;     
-                        
-                        
-groupProject :: (Eq b, Eq c) => (a -> c) -> [(b, a)] -> [(b, c)]
-groupProject f = project (fmap f)
-                        
+                        _ -> insert k [v] mp;    
 
-groupSetProject :: (Eq b, Eq c) => (a -> c) -> [(b, [a])] -> [(b, [c])]
-groupSetProject f = groupProject (project f)
-    
+
+groupLift :: ([a] -> c) -> ([(b, [a])] -> [(b, c)])
+groupLift f = map (fmap f) 
+                        
 
 -- extend all the rows in a relation
 --   by adding extra field(s)
-extend :: (Eq b, Eq c) => (a -> b) -> [a] -> [(a, b)]
+extend :: (Eq a, Eq b) => (a -> b) -> [a] -> [(a, b)]
 extend f rel = project (\a -> (a, f a)) rel
 
 
@@ -105,7 +109,7 @@ pivot f1 f2 rel = groupBy (app2 f1 f2) rel
 -- I put it in reverse order though
 -- I think it's basically trying to find counter-examples
 -- then subtracting those from the input
-divide :: forall a b. [(a, b)] -> [b] -> [a]
+divide :: forall a b. (Eq a, Eq b) => [(a, b)] -> [b] -> [a]
 divide dividend divisor = quotient
   where
     quotient :: [a]
@@ -120,7 +124,7 @@ divide dividend divisor = quotient
     u = project fst dividend
 
 
-divideBy :: forall a b c. (a -> b) -> (a -> c) -> [a] -> [c] -> [b]
+divideBy :: forall a b c. (Eq a, Eq b, Eq c) => (a -> b) -> (a -> c) -> [a] -> [c] -> [b]
 divideBy f f' dividend divisor = divide dividend' divisor
   where
     dividend' :: [(b, c)]
@@ -142,7 +146,7 @@ leftOuterJoin p null rl rr = concatMap f rl
 --   otherwise keep all matches
 
 
-fullOuterJoin :: (a -> b -> Bool) -> a -> b -> [a] -> [b] -> [(a, b)]
+fullOuterJoin :: (Eq a, Eq b) => (a -> b -> Bool) -> a -> b -> [a] -> [b] -> [(a, b)]
 fullOuterJoin p anull bnull as bs = union left right
   where 
     left = leftOuterJoin p bnull as bs
@@ -154,7 +158,7 @@ selfJoin :: (a -> a -> Bool) -> [a] -> [(a, a)]
 selfJoin p rel = join p rel rel
 
 
-semiJoin :: (a -> b -> Bool) -> [a] -> [b] -> [a]
+semiJoin :: Eq a => (a -> b -> Bool) -> [a] -> [b] -> [a]
 semiJoin p r1 r2 = project fst $ join p r1 r2
 
 
@@ -164,6 +168,10 @@ antiJoin p r1 r2 = r1 `difference` semiJoin p r1 r2
 
 rank :: ([a] -> [a]) -> [a] -> [(Integer, a)]
 rank fsort = zip [1 .. ] . fsort
+
+
+aggregate :: (a -> b) -> ([b] -> c) -> [a] -> c
+aggregate proj f = f . map proj
 
 
 -- more ideas:
