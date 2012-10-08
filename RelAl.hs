@@ -11,6 +11,8 @@ module RelAl (
 
   , groupBy
   , groupLift
+  
+  , orderBy
 
   , join
   , leftOuterJoin
@@ -33,7 +35,7 @@ module RelAl (
 import Prelude             hiding (lookup)
 import Data.Map            (lookup, insert, Map, toList, fromList)
 import Control.Monad       (liftM2)
-import Data.List           (nub)
+import Data.List           (nub, sortBy)
 
 
 
@@ -84,6 +86,10 @@ groupBy f rel = toList grouped
 
 groupLift :: ([a] -> c) -> ([(b, [a])] -> [(b, c)])
 groupLift f = map (fmap f) 
+
+
+orderBy :: (a -> a -> Ordering) -> [a] -> [a]
+orderBy = sortBy
                         
 
 -- extend all the rows in a relation
@@ -166,8 +172,8 @@ antiJoin :: (Ord a, Ord b) => (a -> b -> Bool) -> [a] -> [b] -> [a]
 antiJoin p r1 r2 = r1 `difference` semiJoin p r1 r2
 
 
-rank :: ([a] -> [a]) -> [a] -> [(Integer, a)]
-rank fsort = zip [1 .. ] . fsort
+rank :: (a -> a -> Ordering) -> [a] -> [(Integer, a)]
+rank f = zip [1 .. ] . sortBy f
 
 
 aggregate :: (a -> b) -> ([b] -> c) -> [a] -> c

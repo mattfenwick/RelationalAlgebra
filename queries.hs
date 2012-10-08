@@ -2,7 +2,14 @@
 
 
 import RelAl
-import Data.List (maximumBy, nub)
+import Select
+import Data.List (maximumBy, nub, genericLength)
+import Data.Function (on)
+
+
+-- check out this example (just to show how cool 'groupLift' can be):
+--   groupLift (getTopN 2 (on (flip compare) snd)) $ groupBy fst [(x,y) | x <- [1..4], y <- "acxv"]
+
 
 
 data Product = Product { 
@@ -11,6 +18,10 @@ data Product = Product {
                    store :: String, 
                    price :: Double
             } deriving (Ord, Eq, Show)
+            
+
+pr :: Show a => [a] -> IO ()
+pr = mapM_ print
 
 
 ps = [Product  1   "abc"  "xyz"  32.23,
@@ -29,8 +40,57 @@ ps = [Product  1   "abc"  "xyz"  32.23,
       Product  14  "abc"  "zzz"  10.22]
 
 
+-- select * from t;
+-- select x, y from t;
+-- select x, y, x + y from t;
+-- select t.*, x + y from t;
 
-g1 = maximum $ project price ps
+s1 = ps
+s2 = project (\r -> (id' r, price r)) ps
+s3 = project (\r -> (id' r, price r, name r ++ store r)) ps
+s4 = extend (\r -> price r - (fromIntegral $ id' r)) ps
+
+
+-- select t.*, (select max(x) from t) from t;
+-- select max(x) from t;
+
+sel1 = extendAgg (sum . map price) ps
+sel2 = select max 0 $ project price ps
+sel2' = maximum $ project price ps
+
+
+-- select count(*) from t;
+-- select sum(x) from t;
+-- select avg(x + y) from t;
+agg1 = length ps
+agg1' = aggregate id length ps
+agg2 = aggregate price sum ps
+agg3 = aggregate (\r -> price r + (fromIntegral $ id' r)) avg ps
+  where avg xs = sum xs / genericLength xs
+
+
+-- select * from t where x < 3;
+-- select * from t where y - x = 4;
+fil1 = rfilter (\r -> price r < 3) ps
+fil2 = rfilter (\r -> id' r == 7) ps
+
+
+-- select a, max(x) from t group by a;
+-- select a, b, count(*), sum(x) from t group by a, b;
+gr1 = groupLift (select max 0) $ groupLift (project price) $ groupBy name ps
+gr2 = groupLift (aggregate price (\p -> (length p, sum p))) $ groupBy (\r -> (name r, store r)) ps
+
+
+-- select x, y from t order by a desc limit 5;
+-- select x + y from t order by b asc limit 5, 10; -- this starts with the 5th and ends with the 10th, right?  not sure
+topN1 = project (\r -> (id' r, price r)) $ getTopN 5 (on (flip compare) price) ps
+topN_5_10 = drop 5 $ project (\r -> (id' r, price r)) $ getTopN 10 (on compare price) ps
+
+
+-- group top
+grpTop1 = groupLift (getTopN 2 (on (flip compare) price)) $ groupBy name ps
+
+{-
 
 
 g2 = aggregate maximum $ groupProject price $ groupBy store ps 
@@ -66,9 +126,6 @@ quotient = myDividend `divide` myDivisor
     myDivisor = fromList ["www", "xyz"]
 
 
-pr :: Show a => Set a -> IO ()
-pr = mapM_ print . toList
-
 
 
 tabs = [(1, 3, 5, "foo"),
@@ -98,3 +155,4 @@ um3 ch pr rel = rfilter f rel
 -- SO question:   http://stackoverflow.com/questions/12726549/select-one-value-from-a-group-based-on-order-from-other-columns
 soQ = project (fmap (four . head . toList)) $ project (fmap (um3 maximum three)) $ project (fmap (um3 maximum two)) $ groupBy one ts
 
+-}
