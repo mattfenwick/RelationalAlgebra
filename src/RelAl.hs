@@ -67,8 +67,7 @@ join :: (a -> b -> Bool) -> [a] -> [b] -> [(a, b)]
 join f ls rs = rfilter (uncurry f) (rproduct ls rs)
 
 
--- what's the correct type sig?
--- groupBy :: (Ord a, Ord b) => (a -> b) -> [a] -> [(b, [a])
+groupBy :: (Ord b) => (a -> b) -> [a] -> [(b, [a])]
 groupBy f rel = toList grouped
   where
     grouped = foldl f' (fromList []) rel
