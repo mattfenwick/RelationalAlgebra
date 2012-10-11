@@ -14,9 +14,9 @@ module RelAl (
   
   , orderBy
 
-  , join
-  , leftOuterJoin
-  , fullOuterJoin
+  , innerJoin
+  , leftJoin
+  , outerJoin
   , selfJoin
   , semiJoin
   , antiJoin
@@ -63,8 +63,8 @@ difference :: Eq a => [a] -> [a] -> [a]
 difference r1 r2 = filter (\x -> not $ elem x r2) r1
 
 
-join :: (a -> b -> Bool) -> [a] -> [b] -> [(a, b)]
-join f ls rs = rfilter (uncurry f) (rproduct ls rs)
+innerJoin :: (a -> b -> Bool) -> [a] -> [b] -> [(a, b)]
+innerJoin f ls rs = rfilter (uncurry f) (rproduct ls rs)
 
 
 groupBy :: (Ord b) => (a -> b) -> [a] -> [(b, [a])]
@@ -72,13 +72,13 @@ groupBy f rel = toList grouped
   where
     grouped = foldl f' (fromList []) rel
 
-    f' mp next = updateMe (f next) next mp
+    f' mp next = addRow (f next) next mp
     
     -- check whether the key's already in the map:
     -- if it is, stick 'next' on the existing list
     -- if not, create a new, single-element list for that key
-    updateMe :: Ord k => k -> v -> Map k [v] -> Map k [v]
-    updateMe k v mp = case lookup k mp of    
+    addRow :: Ord k => k -> v -> Map k [v] -> Map k [v]
+    addRow k v mp = case lookup k mp of    
                         (Just oldval) -> insert k (v:oldval) mp;  
                         _ -> insert k [v] mp;    
 
@@ -136,8 +136,9 @@ divideBy f f' dividend divisor = divide dividend' divisor
     dividend' = project (app2 f f') dividend
     
     
-leftOuterJoin :: forall a b. (a -> b -> Bool) -> b -> [a] -> [b] -> [(a, b)]
-leftOuterJoin p null rl rr = concatMap f rl
+-- a left outer join
+leftJoin :: forall a b. (a -> b -> Bool) -> b -> [a] -> [b] -> [(a, b)]
+leftJoin p null rl rr = concatMap f rl
   where 
     f :: a -> [(a, b)]
     f a = map ((,) a) $ addNull $ filter (p a) rr
@@ -151,20 +152,20 @@ leftOuterJoin p null rl rr = concatMap f rl
 --   otherwise keep all matches
 
 
-fullOuterJoin :: (Eq a, Eq b) => (a -> b -> Bool) -> a -> b -> [a] -> [b] -> [(a, b)]
-fullOuterJoin p anull bnull as bs = union left right
+outerJoin :: (Eq a, Eq b) => (a -> b -> Bool) -> a -> b -> [a] -> [b] -> [(a, b)]
+outerJoin p anull bnull as bs = union left right
   where 
-    left = leftOuterJoin p bnull as bs
-    right = project swap $ leftOuterJoin (flip p) anull bs as
+    left = leftJoin p bnull as bs
+    right = project swap $ leftJoin (flip p) anull bs as
     swap (a, b) = (b, a) -- why isn't this in Data.Tuple?  do I have an old library version?
     
     
 selfJoin :: (a -> a -> Bool) -> [a] -> [(a, a)]
-selfJoin p rel = join p rel rel
+selfJoin p rel = innerJoin p rel rel
 
 
 semiJoin :: Eq a => (a -> b -> Bool) -> [a] -> [b] -> [a]
-semiJoin p r1 r2 = project fst $ join p r1 r2
+semiJoin p r1 r2 = project fst $ innerJoin p r1 r2
 
 
 antiJoin :: (Ord a, Ord b) => (a -> b -> Bool) -> [a] -> [b] -> [a]
@@ -175,6 +176,10 @@ rank :: (a -> a -> Ordering) -> [a] -> [(Integer, a)]
 rank f = zip [1 .. ] . sortBy f
 
 
+-- this isn't just application -- example:
+--    f_aggregate $ project f_proj relation
+-- if the projection creates duplicates, they'll be lost
+-- that's why we need to use 'map' instead of project
 aggregate :: (a -> b) -> ([b] -> c) -> [a] -> c
 aggregate proj f = f . map proj
 
