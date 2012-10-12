@@ -21,7 +21,6 @@ module RelAl (
   , semiJoin
   , antiJoin
 
-  , pivot
   , extend
   , divide
   , divideBy
@@ -97,19 +96,6 @@ extend :: (Eq a, Eq b) => (a -> b) -> [a] -> [(a, b)]
 extend f rel = project (\a -> (a, f a)) rel
 
 
--- alternate, non-monadic implementation:  app2 f g x = (f x, g x)
--- this is an unnecessary but fun function
-app2 :: (a -> b) -> (a -> c) -> a -> (b, c)
-app2 = liftM2 (,)
--- holy crap, it's exactly the same as 'rproduct'!!!!
-
-
--- this seems to be a mostly unnecessary function
--- but it's interesting
-pivot :: (Ord a, Ord b, Ord c) => (a -> b) -> (a -> c) -> [a] -> [((b, c), [a])]
-pivot f1 f2 rel = groupBy (app2 f1 f2) rel
-
-
 -- this is basically a step-by-step implementation of the wikipedia algorithm
 -- I put it in reverse order though
 -- I think it's basically trying to find counter-examples
@@ -134,6 +120,8 @@ divideBy f f' dividend divisor = divide dividend' divisor
   where
     dividend' :: [(b, c)]
     dividend' = project (app2 f f') dividend
+    app2 :: (a -> b) -> (a -> c) -> a -> (b, c)
+    app2 = liftM2 (,)
     
     
 -- a left outer join
@@ -182,10 +170,3 @@ rank f = zip [1 .. ] . sortBy f
 -- that's why we need to use 'map' instead of project
 aggregate :: (a -> b) -> ([b] -> c) -> [a] -> c
 aggregate proj f = f . map proj
-
-
--- more ideas:
---  - transitive closure :: (a -> a -> Bool) -> [a] -> [(a, a)] -- not sure about the function sig
---  - window functions
---     - size of window
---     - sort order WRT window position

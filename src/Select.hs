@@ -7,12 +7,15 @@ module Select (
   
   , window1
   , getTopN
+  
+  , pivot
 
 ) where
 
 
 import RelAl
 import Data.List (elemIndex, sortBy, genericTake)
+import Control.Monad (liftM2)
 
 
 
@@ -69,4 +72,19 @@ something g base (l:ls) = reverse $ snd $ foldl f (start, [start]) ls
 --   reverse the sort order?
 getTopN :: (Integral t) => t -> (a -> a -> Ordering) -> [a] -> [a]
 getTopN num f = genericTake num . sortBy f
+
+
+-- this seems to be a mostly unnecessary function
+-- but it's interesting, and shows that pivoting
+-- is not a real RA operation, but rather, a 
+-- formatting one
+pivot :: (Ord a, Ord b, Ord c) => (a -> b) -> (a -> c) -> [a] -> [((b, c), [a])]
+pivot f1 f2 rel = groupBy (app2 f1 f2) rel
+
+
+-- alternate, non-monadic implementation:  app2 f g x = (f x, g x)
+-- this is an unnecessary but fun function
+app2 :: (a -> b) -> (a -> c) -> a -> (b, c)
+app2 = liftM2 (,)
+-- holy crap, it's exactly the same as 'rproduct'!!!!
 
