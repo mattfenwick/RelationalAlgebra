@@ -74,7 +74,7 @@ create view grp5 as
   from pets
   inner join grp1 as l
   on pets.species = l.species and 
-     p.age = l.max_age;
+     pets.age = l.max_age;
 
 
 
@@ -211,50 +211,50 @@ create view sub16 as
       
 create view pivot_1 as 
   select
-    products.*,
-    case when store = "www" then price end as WWW,
-    case when store = "xyz" then price end as XYZ
-  from products;
+    pets.*,
+    case when species = "dog" then species end as dog,
+    case when species = "cat" then species end as cat,
+    case when species = "frog" then species end as frog
+  from pets;
   
   
 -- didn't feel like prettifying it
 create view pivot_2 as
   select
-    name,
-    sum(WWW) as WWW,
-    count(WWW) as WWW_ct,
-    sum(XYZ) as XYZ,
-    count(XYZ) as XYZ_ct
+    owner_id,
+    count(*) as num,
+    sum(age) as sum_age,
+    avg(age) as avg_age
   from pivot_1
-  group by name;
+  group by owner_id;
   
   
 -- based on the procedure in my blog:
 --   http://mfenwick100.blogspot.com/2012/04/relational-division.html
 create table divisor (
-  store varchar(50) primary key
+  species varchar(50) primary key
 );
 
-insert into divisor values ("www"), ("xyz");
+insert into divisor values ("cat"), ("frog");
   
 
--- we'll use (name, store) of products as the dividend
+-- we'll use (owner_id, species) of pets as the dividend
 create view dividend as
   select distinct
-    name, store
-  from products;
+    owner_id, species
+  from pets;
   
   
 create view div_inner as
   select dividend.*
   from dividend
   inner join divisor
-  on divisor.store = dividend.store;
+  on divisor.species = dividend.species;
   
   
-create view division as
-  select r.name
+create view quotient as
+  select r.owner_id
   from div_inner as r
-  group by r.name
+  group by r.owner_id
   having count(*) = (select count(*) from divisor);
 
