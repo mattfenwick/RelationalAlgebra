@@ -83,7 +83,7 @@ create view ord1 as
   
 -- this starts with the 5th and ends with the 10th, right?  not sure
 create view ord2 as 
-  select age + weight from persons order by name asc limit 5, 10;
+  select age + weight from persons order by name asc limit 2, 4;
 
 -- then we need a query that gets the top n from each group ... may be hard in SQL
 
