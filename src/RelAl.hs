@@ -11,6 +11,7 @@ module RelAl (
 
   , groupBy
   , groupLift
+  , ungroup
   
   , orderBy
 
@@ -82,8 +83,18 @@ groupBy f rel = toList grouped
                         _ -> insert k [v] mp;    
 
 
-groupLift :: ([a] -> c) -> ([(b, [a])] -> [(b, c)])
+groupLift :: ([a] -> c) -> [(b, [a])] -> [(b, c)]
 groupLift f = map (fmap f) 
+
+
+-- hmm, this isn't the opposite of grouping,
+--   because it retains the group value ... is that inconsistent?
+-- also  rel >>= \(x,y) -> y >>= \z -> return (x, z)
+ungroup :: [(b, [a])] -> [(b, a)]
+ungroup rel = do
+  (x, y) <- rel
+  z <- y
+  return (x, z)
 
 
 orderBy :: (a -> a -> Ordering) -> [a] -> [a]

@@ -110,11 +110,6 @@ create view sub3 as
   select * from pets p1
   where 2 = (select count(*) from pets p2 where p2.age = p1.age);
   
-create view sub4_sub as 
-  select age as a1, count(*) as num 
-  from pets 
-  group by a1;
-  
 -- this should be identical to sub3
 create view sub3_ as
   select * 
@@ -122,6 +117,11 @@ create view sub3_ as
   inner join sub4_sub p2
     on p1.age = p2.a1 
   where p2.num = 2; 
+  
+create view sub4_sub as 
+  select age as a1, count(*) as num 
+  from pets 
+  group by a1;
   
 -- any, in, some, all
 create view sub4 as 
@@ -147,7 +147,8 @@ create view sub6 as
   select * from pets
   where age not in (1,2,3,4,5); -- 'not in' equals '<> all'
   
--- these '<> some' queries are weird, but they're just anti-joins
+-- these '<> some' queries are weird
+--   I guess this just means, there's at least 1 that it's not equal to ...
 create view sub7 as
   select * from pets
   where age <> some (select age from persons);
@@ -187,9 +188,9 @@ create view sub14 as
   
 create view sub15 as
   select * from persons
-  where not exists (select  * from pets where persons.id = pets.owner_id);
+  where not exists (select * from pets where persons.id = pets.owner_id);
   
--- same is sub15
+-- same as sub15
 create view sub15_ as
   select persons.* from persons
   left join pets
@@ -219,6 +220,16 @@ create view pivot_1 as
   
   
 -- didn't feel like prettifying it
+--   ***this doesn't make any sense!!!
+-- can replicate with:
+--  select
+--    owner_id,
+--    count(*) as num,
+--    sum(age) as sum_age,
+--    avg(age) as avg_age
+--  from pets
+--  group by owner_id;
+-- doesn't even need pivot_1 table !!!
 create view pivot_2 as
   select
     owner_id,

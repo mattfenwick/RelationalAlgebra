@@ -3,9 +3,107 @@
 
 import RelAl
 import Select
-import Data.List (maximumBy, nub, genericLength)
-import Data.Function (on)
+import Data.List      (maximumBy, nub, genericLength)
+import Data.Function  (on)
+import Dump           (Person(..), Pet(..), persons, pets)
+import Control.Monad  (liftM2, liftM3)
 
+
+-- match the MySQL queries
+
+sel1 = persons
+sel2 = project f persons
+  where f = liftM2 (,) person_age person_weight
+sel3 = project h persons
+  where g = liftM3 (,,) person_age person_weight (\x -> person_age x + person_weight x)
+        h = liftM3 (,,) person_age person_weight (uncurry (+) . liftM2 (,) person_age person_weight)
+sel4 = extend (uncurry (+) . liftM2 (,) person_age person_weight) persons
+
+
+agg1 = extendAgg (select max 0 . project person_age) persons
+agg2 = select max 0 . project person_weight $ persons
+agg3 = length persons
+agg4 = aggregate person_age sum persons
+agg5 = aggregate (\p -> fromIntegral (person_age p + person_weight p)) avg persons
+  where avg = uncurry (/) . liftM2 (,) sum genericLength
+  
+  
+fil1 = rfilter (\p -> person_age p < 30) persons
+fil1' = rfilter ((< 30) . person_age) persons
+fil2 = rfilter ((flip elem [110, 160]) . person_weight) persons
+
+
+grp1 = groupLift (aggregate pet_age (select max 0)) $ groupBy pet_species pets
+grp1' = groupLift (select max 0) $ groupLift (project pet_age) $ groupBy pet_species pets
+grp2 = groupLift fg $ groupBy (liftM2 (,) pet_owner_id pet_species) pets
+  where fg = aggregate pet_age (liftM2 (,) length sum)
+grp3 = aggregate person_age (select max 0) persons
+grp4 = groupLift (extendAgg (select max 0 . map pet_age)) $ groupBy pet_species pets
+grp5 = innerJoin (\p g -> (pet_species p == fst g) && (pet_age p == snd g)) pets grp1
+
+
+-- this has reverse sorting.  note that there are a lot of ways to get that:
+--   'flip' the 'on', flip the 'compare', flip the projection, 
+--   reverse the result ... what's the best?
+ord1 = take 5 $ project (liftM2 (,) person_name person_age) $ orderBy (on compare (negate . person_weight)) persons
+ord2 = project (uncurry (+) . liftM2 (,) person_age person_weight) $ take 4 $ drop 2 $ orderBy (on compare person_name) persons
+
+
+
+sub1 = extendAgg length pets
+
+sub2 = rfilter filt pets
+  where filt p = pet_species p == (select max "" $ project pet_species pets)
+
+sub3 = project snd $ ungroup $ rfilter (\(a, b) -> length b == 2) $ groupBy pet_age pets
+
+sub4 = rfilter ff pets
+  where ff p = any ((pet_age p) >) $ project pet_age pets
+
+sub5 = rfilter ff pets
+  where ff p = elem (pet_age p) $ project person_age persons
+
+sub5_ = semiJoin (\p p2 -> pet_age p == person_age p2) pets persons
+
+sub6 = rfilter fg pets
+  where fg p = not $ elem (pet_age p) [1..5]
+
+sub7 = rfilter fh pets
+  where fh p = any ((pet_age p) /=) $ project person_age persons
+
+sub8 = antiJoin (\p q -> pet_age p == q) pets [15]
+sub8_ = rfilter (\p -> pet_age p /= 15) pets
+sub8' = rfilter ((/= 15) . pet_age) pets
+
+sub9 = rfilter ff persons
+  where ff p2 = all (\p -> person_age p2 > p) $ project pet_age pets
+sub9' = antiJoin (\p2 p -> person_age p2 <= pet_age p) persons pets
+
+sub10 = error "may be pointless???"
+
+sub11 = rfilter fg persons
+  where fg p2 = person_age p2 * 2 >= (select max 0 $ project person_age persons)
+  
+sub12 = rfilter ff persons
+  where 
+    ff p2 = elem (tup p2) $ project tup filtered
+    tup = liftM2 (,) person_id person_age
+    filtered = rfilter (\p' -> person_id p' <= 3) persons
+    
+sub13 = rfilter fg pets
+  where fg p = (pet_owner_id p, pet_age p) == (Just 4, 12)
+  
+shelp p2 p = (Just $ person_id p2) == pet_owner_id p
+  
+sub14 = semiJoin shelp persons pets
+
+sub15 = antiJoin shelp persons pets
+
+sub16 = avg $ map snd $ groupLift genericLength $ groupBy person_name persons
+  where avg xs = (sum xs) / (fromIntegral $ length xs)
+
+-- -----------------------------------------------------------------
+-- some older junk
 
 -- check out this example (just to show how cool 'groupLift' can be):
 --   groupLift (getTopN 2 (on (flip compare) snd)) $ groupBy fst [(x,y) | x <- [1..4], y <- "acxv"]
@@ -54,25 +152,25 @@ s4 = extend (\r -> price r - (fromIntegral $ id' r)) ps
 -- select t.*, (select max(x) from t) from t;
 -- select max(x) from t;
 
-sel1 = extendAgg (sum . map price) ps
-sel2 = select max 0 $ project price ps
-sel2' = maximum $ project price ps
+_sel1 = extendAgg (sum . map price) ps
+_sel2 = select max 0 $ project price ps
+_sel2' = maximum $ project price ps
 
 
 -- select count(*) from t;
 -- select sum(x) from t;
 -- select avg(x + y) from t;
-agg1 = length ps
-agg1' = aggregate id length ps
-agg2 = aggregate price sum ps
-agg3 = aggregate (\r -> price r + (fromIntegral $ id' r)) avg ps
+_agg1 = length ps
+_agg1' = aggregate id length ps
+_agg2 = aggregate price sum ps
+_agg3 = aggregate (\r -> price r + (fromIntegral $ id' r)) avg ps
   where avg xs = sum xs / genericLength xs
 
 
 -- select * from t where x < 3;
 -- select * from t where y - x = 4;
-fil1 = rfilter (\r -> price r < 3) ps
-fil2 = rfilter (\r -> id' r == 7) ps
+_fil1 = rfilter (\r -> price r < 3) ps
+_fil2 = rfilter (\r -> id' r == 7) ps
 
 
 -- select a, max(x) from t group by a;
