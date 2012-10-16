@@ -1,4 +1,4 @@
-module Select (
+module Data.Relation.Experimental (
 
     extendAgg
 
@@ -13,7 +13,7 @@ module Select (
 ) where
 
 
-import RelAl
+import Data.Relation.Core
 import Data.List (elemIndex, sortBy, genericTake)
 import Control.Monad (liftM2)
 

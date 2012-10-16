@@ -1,8 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables #-} -- just for um3
 
 
-import RelAl
-import Select
+import Data.Relation.Core
+import Data.Relation.Experimental
 import Data.List      (maximumBy, nub, genericLength)
 import Data.Function  (on)
 import Dump           (Person(..), Pet(..), persons, pets)

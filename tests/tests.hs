@@ -1,21 +1,14 @@
 import Test.HUnit      -- why doesn't this work? (assertEqual, Test, TestList) -- , TestCase)
-import RelAl           (project, rfilter, rproduct, join, groupBy)
+import Data.Relation.Core          
+import Data.Relation.Experimental
 import Control.Monad   (liftM2)
-import Data.Set        (Set, fromList, toList)
-import qualified Data.Set
-
-
-
-newSet :: Ord a => [a] -> Set a
-newSet = fromList
 
 
 newTest :: (Eq a, Show a) => String -> a -> a -> Test
 newTest a b c = TestCase $ assertEqual a b c
 
 
-empty :: Ord a => Set a
-empty = newSet []
+empty = []
 
 -- project:
 --   - empty set -> empty set

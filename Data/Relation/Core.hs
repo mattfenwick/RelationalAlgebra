@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module RelAl (
+module Data.Relation.Core (
   
     project
   , rfilter
