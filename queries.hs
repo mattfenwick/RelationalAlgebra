@@ -3,6 +3,7 @@
 
 import Data.Relation.Core
 import Data.Relation.Experimental
+import Data.Relation.Junk  (pivot)
 import Data.List      (maximumBy, nub, genericLength)
 import Data.Function  (on)
 import Dump           (Person(..), Pet(..), persons, pets)
