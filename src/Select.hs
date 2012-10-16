@@ -69,9 +69,9 @@ something g base (l:ls) = reverse $ snd $ foldl f (start, [start]) ls
 -- how about:  Ord b => Integer -> (a -> b) -> [a] -> [a]
 --        getTopN num f rel = genericTake num . sortBy (on compare f)
 -- how does this deal with client code that needs to, say, 
---   reverse the sort order?
+--   reverse the sort order? ... I guess just reverse it afterwards
 getTopN :: (Integral t) => t -> (a -> a -> Ordering) -> [a] -> [a]
-getTopN num f = genericTake num . sortBy f
+getTopN num f = genericTake num . orderBy f
 
 
 -- this seems to be a mostly unnecessary function

@@ -110,18 +110,19 @@ create view sub3 as
   select * from pets p1
   where 2 = (select count(*) from pets p2 where p2.age = p1.age);
   
+create view sub4_sub as 
+  select age as a1, count(*) as num 
+  from pets 
+  group by a1;
+  
 -- this should be identical to sub3
+-- this *has* to go after 'sub4_sub' b/c this uses it
 create view sub3_ as
   select * 
   from pets p1 
   inner join sub4_sub p2
     on p1.age = p2.a1 
   where p2.num = 2; 
-  
-create view sub4_sub as 
-  select age as a1, count(*) as num 
-  from pets 
-  group by a1;
   
 -- any, in, some, all
 create view sub4 as 
@@ -210,44 +211,33 @@ create view sub16 as
 -- some more complicated queries
       
       
-create view pivot_1 as 
+-- based on http://stackoverflow.com/questions/1241178/mysql-rows-to-columns/9668036#9668036
+create view pivot_help as 
   select
     pets.*,
-    case when species = "dog" then species end as dog,
-    case when species = "cat" then species end as cat,
-    case when species = "frog" then species end as frog
+    case when species = "dog"  then 1 else 0 end as dog,
+    case when species = "cat"  then 1 else 0 end as cat,
+    case when species = "frog" then 1 else 0 end as frog
   from pets;
   
-  
--- didn't feel like prettifying it
---   ***this doesn't make any sense!!!
--- can replicate with:
---  select
---    owner_id,
---    count(*) as num,
---    sum(age) as sum_age,
---    avg(age) as avg_age
---  from pets
---  group by owner_id;
--- doesn't even need pivot_1 table !!!
-create view pivot_2 as
+create view pivot as
   select
     owner_id,
-    count(*) as num,
-    sum(age) as sum_age,
-    avg(age) as avg_age
-  from pivot_1
+    count(*)  as `number of pets`,
+    sum(dog)  as dogs,
+    sum(cat)  as cats,
+    sum(frog) as frogs
+  from pivot_help
   group by owner_id;
   
   
--- based on the procedure in my blog:
---   http://mfenwick100.blogspot.com/2012/04/relational-division.html
+
+-- based on http://mfenwick100.blogspot.com/2012/04/relational-division.html
 create table divisor (
   species varchar(50) primary key
 );
 
-insert into divisor values ("cat"), ("frog");
-  
+insert into divisor values ("cat"), ("frog");  
 
 -- we'll use (owner_id, species) of pets as the dividend
 create view dividend as
@@ -255,13 +245,11 @@ create view dividend as
     owner_id, species
   from pets;
   
-  
 create view div_inner as
   select dividend.*
   from dividend
   inner join divisor
   on divisor.species = dividend.species;
-  
   
 create view quotient as
   select r.owner_id
