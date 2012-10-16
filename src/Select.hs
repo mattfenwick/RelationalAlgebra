@@ -24,7 +24,7 @@ extendAgg fa rel = extend (const $ fa rel) rel
 
 
 -- this represents selecting a single row by extreme value
---   or something
+--   (... or something ...)
 select :: (a -> a -> a) -> a -> [a] -> a
 select = foldl
 
@@ -34,8 +34,12 @@ select' _ [] = Nothing
 select' f (x:xs) = Just $ foldl f x xs
 
 
--- note how 'selectMany id' specialize this to
---    :: Eq a => (a -> a -> b) -> [a] -> [a]
+-- note how 'selectMany id' specializes this to
+--    :: Eq a => (a -> a -> a) -> [a] -> [a]
+-- but wouldn't this be better:
+--    :: Eq b => (a -> b) -> ([b] -> b) -> [a] -> [a]
+--    proj chs rel = rfilter (\r' -> proj r' == bVal) rel
+--      where bVal = chs $ project proj rel
 selectMany :: Eq b => (a -> b) -> (b -> b -> b) -> [a] -> [a]
 selectMany _ _ [] = []
 selectMany proj chs (r:rs) = rfilter (\r' -> proj r' == bVal) (r:rs)

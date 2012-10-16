@@ -108,6 +108,12 @@ sub16 = avg $ map snd $ groupLift genericLength $ groupBy person_name persons
 pivot' = groupLift length $ pivot pet_owner_id pet_species pets
 
 
+
+quotient = divideBy pet_owner_id pet_species pets ["cat", "frog"]
+quotient' = divide dividend ["cat", "frog"]
+  where dividend = project (liftM2 (,) pet_owner_id pet_species) pets
+
+
 -- -----------------------------------------------------------------
 -- some older junk
 
