@@ -1,6 +1,7 @@
 import Data.Relation.Core
 import Data.Relation.Experimental
 import Data.Function  (on)
+import Data.List      (isPrefixOf)
 
 
 
@@ -66,3 +67,70 @@ answer = project (\((t, b), (_, _, b')) -> (t, b + b')) withEOM
     filtered = rfilter isBank $ semiJoin pred trans eoms
 
     pred t (act, de, _) = (account t == act) && (date t >= de)
+    
+    
+    
+    
+    
+-- ---------------------------------------------------------------
+-- now for the billing project example
+
+type I = Integer
+
+type BDate = (I, I, I, I, I, I) -- year, month, day, hour, minute, second
+
+billing :: [([String], Integer)]
+billing = groupLift sum grouped
+  where
+    grouped :: [([String], [Integer])]
+    grouped = groupLift (map snd) windowed
+    
+    windowed :: [([String], [([String], Integer)])]
+    windowed = map (\((s, _), r) -> (s, r)) wind1
+    
+    wind1 :: [(([String], Integer), [([String], Integer)])]
+    wind1 = window2 q durations
+    
+    q :: ([String], b) -> ([String], c) -> Bool
+    q (s, _) (s', _) = isPrefixOf s s'
+
+    durations :: [([String], Integer)]
+    durations = map (\(s, (start, stop)) -> (s, stop - start)) paired
+
+    paired :: [([String], (Integer, Integer))]
+    paired = filter (\(_, (a, b)) -> b >= a) cleaned1
+
+    cleaned1 :: [([String], (Integer, Integer))]
+    cleaned1 = map my2Weird $ filter doesnt_match_bad_path $ filter myWeirdF grped1
+    
+    doesnt_match_bad_path = const True 
+
+    grped1 :: [([String], [(Integer, Bool)])]
+    grped1 = groupLift (map (\(_, x, y) -> (x, y))) $ groupBy (\(x,_,_) -> x) events
+
+    events :: [([String], Integer, Bool)] -- Bool means 'isStart'
+    events = [
+        (["500", "no"], 567, True),
+        (["500", "no"], 1024, False),
+        (["500","no", "mai", "dis", "donc"], 3223, True),
+        (["500","no", "mai", "dis", "donc"], 3237, False)
+      ]
+    
+
+window2 :: (a -> a -> Bool) -> [a] -> [(a, [a])]
+window2 f xs = do
+  l <- xs
+  let rs = filter (f l) xs
+  return (l, rs) -- I guess 'do'-notation was a pretty lame choice here
+    
+    
+myWeirdF :: (a, [(Integer, Bool)]) -> Bool
+myWeirdF (_, (_,True):(_,False):zs) = True
+myWeirdF (_, (_,False):(_,True):zs) = True
+myWeirdF (_, _) = False
+
+
+my2Weird :: (a, [(Integer, Bool)]) -> (a, (Integer, Integer))
+my2Weird (s, ((x, False):(y, True):[])) = (s, (y, x))
+my2Weird (s, ((x, True):(y, False):[])) = (s, (x, y))
+my2Weird _ = error "what?  this never should have happened"
