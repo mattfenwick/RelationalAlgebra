@@ -62,19 +62,12 @@ antiJoin p xs ys = xs `difference` semiJoin p xs ys
         
 -- join and group at the same time,
 --   grouping by the rows in the left-hand table
+-- this works kind of like a left join
 groupJoin :: (a -> b -> Bool) -> [a] -> [b] -> [(a, [b])]
 groupJoin p xs ys = do
     x <- xs
     let rights = filter (p x) ys
     return (x, rights) -- I guess 'do'-notation was a pretty lame choice here
-{- alternatively:
--- left-hand table would have to not have duplicates
-groupJoin :: Eq a => (a -> b -> Bool) -> [a] -> [b] -> [(a, [b])]
-groupJoin p ls rs = groupBy fst $ innerJoin p ls rs
--- or --
-groupJoin p ls rs = ls >>= \l -> let rights = filter (p l) rs
-                                 in return (l, rights)
--}
 
 
 
