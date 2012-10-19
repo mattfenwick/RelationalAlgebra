@@ -7,11 +7,13 @@ module Data.Relation.Experimental (
   , selfJoin
   , semiJoin
   , antiJoin
+  , groupJoin
 
   , select
   , selectMany
   
   , window1
+  , windowSeq
   , getTopN
 
 ) where
@@ -37,8 +39,8 @@ extendAgg :: (Eq a, Eq b) => ([a] -> b) -> [a] -> [(a, b)]
 extendAgg fa rel = extend (const $ fa rel) rel
 
 
-rank :: (a -> a -> Ordering) -> [a] -> [(Integer, a)]
-rank f = zip [1 .. ] . orderBy f
+rank :: [a] -> [(Integer, a)]
+rank = zip [1 .. ]
 
 
 
@@ -56,6 +58,21 @@ semiJoin p r1 r2 = project fst $ innerJoin p r1 r2
 
 antiJoin :: (Ord a, Ord b) => (a -> b -> Bool) -> [a] -> [b] -> [a]
 antiJoin p r1 r2 = r1 `difference` semiJoin p r1 r2
+        
+        
+groupJoin :: (a -> b -> Bool) -> [a] -> [b] -> [(a, [b])]
+groupJoin p ls rs = do
+    l <- ls
+    let rights = filter (p l) rs
+    return (l, rights) -- I guess 'do'-notation was a pretty lame choice here
+{- alternatively:
+-- has to be no duplicates in left-hand table
+groupJoin :: Eq a => (a -> b -> Bool) -> [a] -> [b] -> [(a, [b])]
+groupJoin p ls rs = groupBy fst $ innerJoin p ls rs
+-- or --
+groupJoin p ls rs = ls >>= \l -> let rights = filter (p l) rs
+                                 in return (l, rights)
+-}
 
 
 
@@ -74,12 +91,6 @@ select' _ [] = Nothing
 select' f (x:xs) = Just $ foldl f x xs
 
 
--- note how 'selectMany id' specializes this to
---    :: Eq a => (a -> a -> a) -> [a] -> [a]
--- but wouldn't this be better:
---    :: Eq b => (a -> b) -> ([b] -> b) -> [a] -> [a]
---    proj chs rel = rfilter (\r' -> proj r' == bVal) rel
---      where bVal = chs $ project proj rel
 selectMany :: Eq b => (a -> b) -> (b -> b -> b) -> [a] -> [a]
 selectMany _ _ [] = []
 selectMany proj chs (r:rs) = rfilter (\r' -> proj r' == bVal) (r:rs)
@@ -107,17 +118,18 @@ window1 cmp fa base rel = zip sorted aggVals
       where
         start = g l base
         f (b, bs) nxt = (g nxt b, (g nxt b):bs)
+        
+        
+-- bundle each 'row' with a function applied
+-- to the list of rows 1) before and 2) after it
+windowSeq :: ([a] -> [a] -> b) -> [a] -> [(a, b)]
+windowSeq f rs = help [] rs
+  where
+    help _ [] = []
+    help be (a:as) = (a, f be as):(help (a:be) as)
     
     
--- a limitation of this approach:  if there's 'ties', one of
---   them will get picked ... but which one?  I guess this could
---   be resolved by making sure that the ordering is on a key,
---   but that's not gonna happen ... looks like it's the 
---   responsibility of the comparison function to fix that
 -- how about:  Ord b => Integer -> (a -> b) -> [a] -> [a]
 --        getTopN num f rel = genericTake num . orderBy (on compare f)
--- how does this deal with client code that needs to, say, 
---   reverse the sort order? ... I guess just reverse it afterwards
 getTopN :: (Integral t) => t -> (a -> a -> Ordering) -> [a] -> [a]
 getTopN num f = genericTake num . orderBy f
-

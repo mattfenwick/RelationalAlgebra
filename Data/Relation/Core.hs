@@ -29,6 +29,7 @@ module Data.Relation.Core (
 import Prelude             hiding (lookup)
 import Data.Map            (lookup, insert, Map, toList, fromList)
 import Control.Monad       (liftM2)
+import Control.Arrow       ((&&&))
 import Data.List           (nub, sortBy)
 
 
@@ -89,9 +90,7 @@ divideBy :: forall a b c. (Eq a, Eq b, Eq c) => (a -> b) -> (a -> c) -> [a] -> [
 divideBy f f' dividend divisor = divide dividend' divisor
   where
     dividend' :: [(b, c)]
-    dividend' = project (app2 f f') dividend
-    app2 :: (a -> b) -> (a -> c) -> a -> (b, c)
-    app2 = liftM2 (,)
+    dividend' = project (f &&& f') dividend
 
 
 

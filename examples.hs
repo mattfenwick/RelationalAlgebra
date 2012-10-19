@@ -2,6 +2,7 @@ import Data.Relation.Core
 import Data.Relation.Experimental
 import Data.Function  (on)
 import Data.List      (isPrefixOf)
+import Control.Arrow  (second)
 
 
 
@@ -79,58 +80,53 @@ type I = Integer
 
 type BDate = (I, I, I, I, I, I) -- year, month, day, hour, minute, second
 
-billing :: [([String], Integer)]
+type Path = [String]
+
+billing :: [(Path, Integer)]
 billing = groupLift sum grouped
   where
-    grouped :: [([String], [Integer])]
-    grouped = groupLift (map snd) windowed
-    
-    windowed :: [([String], [([String], Integer)])]
-    windowed = map (\((s, _), r) -> (s, r)) wind1
-    
-    wind1 :: [(([String], Integer), [([String], Integer)])]
-    wind1 = window2 q durations
-    
-    q :: ([String], b) -> ([String], c) -> Bool
-    q (s, _) (s', _) = isPrefixOf s s'
+    grouped :: [(Path, [Integer])]
+    grouped = groupLift (map snd) wind1
 
-    durations :: [([String], Integer)]
-    durations = map (\(s, (start, stop)) -> (s, stop - start)) paired
+    wind1 :: [(Path, [(Path, Integer)])]
+    wind1 = groupJoin q (map fst durations) durations
+    
+    q :: Path -> (Path, c) -> Bool
+    q s (s', _) = isPrefixOf s s'
 
-    paired :: [([String], (Integer, Integer))]
+    durations :: [(Path, Integer)]
+    durations = map (second $ uncurry $ flip (-)) paired  -- lolz!! i can haz arroz plz!!
+
+    paired :: [(Path, (Integer, Integer))]
     paired = filter (\(_, (a, b)) -> b >= a) cleaned1
 
-    cleaned1 :: [([String], (Integer, Integer))]
-    cleaned1 = map my2Weird $ filter doesnt_match_bad_path $ filter myWeirdF grped1
+    cleaned1 :: [(Path, (Integer, Integer))]
+    cleaned1 = map (second my2Weird) $ filter doesnt_match_bad_path $ filter (snd . second myWeirdF) grped1
     
     doesnt_match_bad_path = const True 
 
-    grped1 :: [([String], [(Integer, Bool)])]
+    grped1 :: [(Path, [(Integer, Bool)])]
     grped1 = groupLift (map (\(_, x, y) -> (x, y))) $ groupBy (\(x,_,_) -> x) events
 
-    events :: [([String], Integer, Bool)] -- Bool means 'isStart'
+    events :: [(Path, Integer, Bool)] -- Bool means 'isStart'
     events = [
         (["500", "no"], 567, True),
         (["500", "no"], 1024, False),
-        (["500","no", "mai", "dis", "donc"], 3223, True),
-        (["500","no", "mai", "dis", "donc"], 3237, False)
+        (["500", "no", "mai", "dis", "donc"], 3223, True),
+        (["500", "no", "mai", "dis", "donc"], 3237, False),
+        (["600", "yes"], 888, True),
+        (["600", "yes"], 1012, False),
+        (["500", "nomai"], 812, True)
       ]
     
-
-window2 :: (a -> a -> Bool) -> [a] -> [(a, [a])]
-window2 f xs = do
-  l <- xs
-  let rs = filter (f l) xs
-  return (l, rs) -- I guess 'do'-notation was a pretty lame choice here
     
-    
-myWeirdF :: (a, [(Integer, Bool)]) -> Bool
-myWeirdF (_, (_,True):(_,False):zs) = True
-myWeirdF (_, (_,False):(_,True):zs) = True
-myWeirdF (_, _) = False
+myWeirdF :: [(a, Bool)] -> Bool
+myWeirdF ((_,True):(_,False):[]) = True
+myWeirdF ((_,False):(_,True):[]) = True
+myWeirdF _ = False
 
 
-my2Weird :: (a, [(Integer, Bool)]) -> (a, (Integer, Integer))
-my2Weird (s, ((x, False):(y, True):[])) = (s, (y, x))
-my2Weird (s, ((x, True):(y, False):[])) = (s, (x, y))
+my2Weird :: [(Integer, Bool)] -> (Integer, Integer)
+my2Weird ((x, False):(y, True):[]) = (y, x)
+my2Weird ((x, True):(y, False):[]) = (x, y)
 my2Weird _ = error "what?  this never should have happened"
