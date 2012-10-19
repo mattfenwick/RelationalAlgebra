@@ -32,11 +32,11 @@ import Data.List (genericTake)
 -- extend all the rows in a relation
 --   by adding extra field(s)
 extend :: (Eq a, Eq b) => (a -> b) -> [a] -> [(a, b)]
-extend f rel = project (\a -> (a, f a)) rel
+extend f = project (\a -> (a, f a))
 
 
 extendAgg :: (Eq a, Eq b) => ([a] -> b) -> [a] -> [(a, b)]
-extendAgg fa rel = extend (const $ fa rel) rel
+extendAgg fa xs = extend (const $ fa xs) xs
 
 
 rank :: [a] -> [(Integer, a)]
@@ -49,24 +49,26 @@ rank = zip [1 .. ]
 -- ------------------------------------------------------------
     
 selfJoin :: (a -> a -> Bool) -> [a] -> [(a, a)]
-selfJoin p rel = innerJoin p rel rel
+selfJoin p xs = innerJoin p xs xs
 
 
 semiJoin :: Eq a => (a -> b -> Bool) -> [a] -> [b] -> [a]
-semiJoin p r1 r2 = project fst $ innerJoin p r1 r2
+semiJoin p xs ys = project fst $ innerJoin p xs ys
 
 
 antiJoin :: (Ord a, Ord b) => (a -> b -> Bool) -> [a] -> [b] -> [a]
-antiJoin p r1 r2 = r1 `difference` semiJoin p r1 r2
+antiJoin p xs ys = xs `difference` semiJoin p xs ys
         
         
+-- join and group at the same time,
+--   grouping by the rows in the left-hand table
 groupJoin :: (a -> b -> Bool) -> [a] -> [b] -> [(a, [b])]
-groupJoin p ls rs = do
-    l <- ls
-    let rights = filter (p l) rs
-    return (l, rights) -- I guess 'do'-notation was a pretty lame choice here
+groupJoin p xs ys = do
+    x <- xs
+    let rights = filter (p x) ys
+    return (x, rights) -- I guess 'do'-notation was a pretty lame choice here
 {- alternatively:
--- has to be no duplicates in left-hand table
+-- left-hand table would have to not have duplicates
 groupJoin :: Eq a => (a -> b -> Bool) -> [a] -> [b] -> [(a, [b])]
 groupJoin p ls rs = groupBy fst $ innerJoin p ls rs
 -- or --
@@ -93,9 +95,9 @@ select' f (x:xs) = Just $ foldl f x xs
 
 selectMany :: Eq b => (a -> b) -> (b -> b -> b) -> [a] -> [a]
 selectMany _ _ [] = []
-selectMany proj chs (r:rs) = rfilter (\r' -> proj r' == bVal) (r:rs)
+selectMany proj chs (x:xs) = rfilter (\r' -> proj r' == bVal) (x:xs)
   where
-    bVal = select chs (proj r) (map proj rs) 
+    bVal = select chs (proj x) (map proj xs) 
 
 
 
@@ -105,11 +107,11 @@ selectMany proj chs (r:rs) = rfilter (\r' -> proj r' == bVal) (r:rs)
 
 -- a window function
 window1 :: (a -> a -> Ordering) -> (a -> b -> b) -> b -> [a] -> [(a, b)]
-window1 cmp fa base rel = zip sorted aggVals
+window1 cmp fa base xs = zip sorted aggVals
   where
 --    aggVals :: [b]
     aggVals = something fa base sorted
-    sorted = orderBy cmp rel
+    sorted = orderBy cmp xs
     -- this is really similar to scanl and scanr, except that 
     --   the size of the output is the same as that of the input
     something :: (a -> b -> b) -> b -> [a] -> [b]
@@ -123,7 +125,7 @@ window1 cmp fa base rel = zip sorted aggVals
 -- bundle each 'row' with a function applied
 -- to the list of rows 1) before and 2) after it
 windowSeq :: ([a] -> [a] -> b) -> [a] -> [(a, b)]
-windowSeq f rs = help [] rs
+windowSeq f xs = help [] xs
   where
     help _ [] = []
     help be (a:as) = (a, f be as):(help (a:be) as)

@@ -59,7 +59,7 @@ union xs ys = nub (xs ++ ys)
 
 
 difference :: Eq a => [a] -> [a] -> [a]
-difference r1 r2 = filter (\x -> not $ elem x r2) r1
+difference xs ys = filter (\x -> not $ elem x ys) xs
 
 
 
@@ -99,7 +99,7 @@ divideBy f f' dividend divisor = divide dividend' divisor
 -- ------------------------------------------------------------
 
 innerJoin :: (a -> b -> Bool) -> [a] -> [b] -> [(a, b)]
-innerJoin f ls rs = rfilter (uncurry f) (rproduct ls rs)
+innerJoin f xs ys = rfilter (uncurry f) (rproduct xs ys)
     
     
 -- a left outer join
@@ -108,10 +108,10 @@ innerJoin f ls rs = rfilter (uncurry f) (rproduct ls rs)
 --   if no matches, match a with the default
 --   otherwise keep all matches
 leftJoin :: forall a b. (a -> b -> Bool) -> b -> [a] -> [b] -> [(a, b)]
-leftJoin p null rl rr = concatMap f rl
+leftJoin p null xs ys = concatMap f xs
   where 
     f :: a -> [(a, b)]
-    f a = map ((,) a) $ addNull $ filter (p a) rr
+    f a = map ((,) a) $ addNull $ filter (p a) ys
       where
         addNull :: [b] -> [b]
         addNull [] = [null]
@@ -119,10 +119,10 @@ leftJoin p null rl rr = concatMap f rl
 
 
 outerJoin :: (Eq a, Eq b) => (a -> b -> Bool) -> a -> b -> [a] -> [b] -> [(a, b)]
-outerJoin p anull bnull as bs = union left right
+outerJoin p xnull ynull xs ys = union left right
   where 
-    left = leftJoin p bnull as bs
-    right = project swap $ leftJoin (flip p) anull bs as
+    left = leftJoin p ynull xs ys
+    right = project swap $ leftJoin (flip p) xnull ys xs
     swap (a, b) = (b, a) -- why isn't this in Data.Tuple?  do I have an old library version?
     
 
@@ -132,9 +132,9 @@ outerJoin p anull bnull as bs = union left right
 -- ------------------------------------------------------------
 
 groupBy :: (Ord b) => (a -> b) -> [a] -> [(b, [a])]
-groupBy f rel = toList grouped
+groupBy f xs = toList grouped
   where
-    grouped = foldl f' (fromList []) rel
+    grouped = foldl f' (fromList []) xs
 
     f' mp next = addRow (f next) next mp
     
@@ -153,10 +153,10 @@ groupLift f = map (fmap f)
 
 -- hmm, this isn't the opposite of grouping,
 --   because it retains the group value ... is that inconsistent?
--- also  rel >>= \(x,y) -> y >>= \z -> return (x, z)
+-- also  xs >>= \(x,y) -> y >>= \z -> return (x, z)
 ungroup :: [(b, [a])] -> [(b, a)]
-ungroup rel = do
-  (x, y) <- rel
+ungroup xs = do
+  (x, y) <- xs
   z <- y
   return (x, z)
 

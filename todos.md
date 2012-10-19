@@ -2,11 +2,6 @@
  - transitive closure :: (a -> a -> Bool) -> [a] -> [(a, a)] -- not 
    sure about the function sig
 
- - groupJoin :: (b -> a -> Bool) -> [b] -> [a] -> [(b, [a])]
-   that is, join and group at the same time, grouping by the left-hand rows
-   can be implemented with (groupBy fst . join) if we allow Eq constraint
-   on left-hand table and forbid duplicates (also on left-hand table)
-
  - window functions
    - size of window
    - sort order WRT window position

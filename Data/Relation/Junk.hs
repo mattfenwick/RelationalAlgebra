@@ -17,7 +17,7 @@ import Control.Monad        (liftM2)
 -- shows that pivoting is not a real RA 
 -- operation, but rather, a formatting one
 pivot :: (Ord a, Ord b, Ord c) => (a -> b) -> (a -> c) -> [a] -> [((b, c), [a])]
-pivot f1 f2 rel = groupBy (app2 f1 f2) rel
+pivot f1 f2 xs = groupBy (app2 f1 f2) xs
 
 
 app2 :: (a -> b) -> (a -> c) -> a -> (b, c)
